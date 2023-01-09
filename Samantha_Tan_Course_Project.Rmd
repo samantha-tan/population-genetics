@@ -1,0 +1,112 @@
+---
+title: "Project: Genome-wide dN/dS estimation in Covid vs. SARS"
+author: "Samantha Tan"
+date: "2022-12-17"
+output: html_document
+---
+
+<style>
+body {
+text-align: justify}
+</style>
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Introduction
+
+dN is the number of nonsynonymous (amino acid changing) changes that occur between two sequences per nonsynonymous site. The number of synonymous (i.e. silent) changes between two sequences per synonymous site is given by dS. dS is frequently assumed to be the neutral rate of substitution. The rate of protein evolution is measured by dN/dS, also known as omega (i.e. dN normalized by dS to account for mutation rate variation among genes). To calculate these figures, we must first calculate the number of changes as well as the number of sites in each class. 
+
+When dN/dS << 1, it is assumed that most amino acid changes are harmful. Many amino acid mutations can be harmful, beneficial, or neutral when dN/dS is less than 1. When dN/dS = 1, it could mean that all amino acid changes are neutral, or that they are a mix of deleterious, advantageous, and neutral. When dN/dS is greater than one, there are many advantageous mutations and positive selection is dominant (does not preclude other classes).
+
+Coronaviruses (CoVs) received worldwide attention following the outbreak of severe acute respiratory syndrome (SARS) in November 2002. On December 1, 2019, the first case of coronavirus disease 2019 (COVID-19) was reported in Wuhan, China, caused by a novel coronavirus (SARS-CoV-2), and CoVs were reintroduced into the public eye. The World Health Organization (WHO) declared the COVID-19 epidemic a public health emergency of international concern (PHEIC) on January 30, 2020, and COVID-19 was classified as a pandemic disease on March 11, 2020. 
+
+This report attempts to identify orthologous genes and determine the evolutionary rates of each gene in the SARS and Covid-19 coronavirus genomes.
+
+## Method
+
+The NCBI RefSeq genome collection was used to obtain the whole genome data for SARS and Covid-19 used in this report. The R package, biomartr, is used to download the coding sequence (CDS) data for each genome, namely SARS and Covid-19. The orthologr R package is then used to find orthologs by employing the reciprocal best hit ("RBH") method. Then, Clustal Omega (clustalo) is used for alignment, followed by pal2nal to convert protein alignments back to nucleotide alignments. Finally, multiple sequence alignments are used to estimate dN, dS, and dN/dS values. All of this is accomplished with three simple RStudio commands. 
+
+Versions of all software and R packages used are as follows:<br>
+<li>R version 4.2.1 (2022-06-23)</li>
+<li>orthologr_0.4.0</li>
+<li>biomartr_1.0.2</li>
+
+## Results
+
+There are 11 protein-coding genes in the Covid-19 genome and 13 protein-coding genes in the SARS genome. In total, there are 11 CDS sequences in both Covid-19 and SARS genome after running the analysis. 
+
+There are a total of 3 proteins that meet the reciporcal best hit (RBH) approach to ortholog identification. 
+
+```{r}
+results_table <- read.csv("/Users/samanthatan/Desktop/Covid_19_vs_Sars_dNdS.csv")
+results_table
+```
+
+## Discussion
+
+All dN/dS values are less than 1, with the highest dN/dS value being 0.201. This suggests then dN/dS <<1 i.e. most amino acid changes are harmful. 
+
+Two genes, Covid-19 spike protein and ORF1ab, show dS > 1, suggesting that there are more synonymous mutations than synonmous sites.
+
+The protein identifier for the spike protein in Covid-19 is <b><u>YP_009724390.1</b></u>, it is the S surface glycoprotein. The dN value for the Covid-19 spike protein is <b><u>0.1549</b></u>. The dS value for the Covid-19 spike protein is <b><u>1.368</b></u>. The dN/dS value for the Covid-19 spike protein is <b><u>0.1132</b></u>.
+
+## Appendix
+```{r}
+library(orthologr)
+library(biomartr)
+# download all coding sequences for Covid-19
+Covid_19_file <- biomartr::getCDS(organism = "GCF_009858895.2", path = getwd())
+# download all coding sequences for SARS
+SARS_file <- biomartr::getCDS(organism = "GCF_000864885.1", path = getwd())
+# compute dN/dS values for Homo sapiens versus Mus musculus
+Covid_19_vs_Sars_dNdS <- 
+  dNdS(query_file      = Covid_19_file,
+       subject_file    = SARS_file,
+       delete_corrupt_cds = FALSE,
+       ortho_detection = "RBH", 
+       aa_aln_type     = "multiple",
+       aa_aln_tool     = "clustalo", 
+       codon_aln_tool  = "pal2nal", 
+       dnds_est.method = "Comeron", 
+       comp_cores      = 1 )
+# display
+print(head(Covid_19_vs_Sars_dNdS))
+```
+
+## Extra Credit
+```{r}
+# Perform A Multiple Alignment Using ClustalO for Covid-19
+multi_aln(file    = Covid_19_file,
+          tool    = "clustalo",
+          get_aln = TRUE)
+```
+
+```{r}
+# Perform A Multiple Alignment Using ClustalO for Sars
+multi_aln(file    = SARS_file,
+          tool    = "clustalo",
+          get_aln = TRUE)
+```
+
+The one functional residue from Kang et al., 2021 thought to be under positive selection in Covid-19 is <b><u>Alanine</b></u>.
+
+```{r}
+# Create a visualization of the multiple sequence alignment for Covid-19.
+library(ggmsa)
+Cov_multi_aln <- multi_aln(file    = Covid_19_file,
+                            tool    = "clustalo",
+                            get_aln = TRUE)
+ggmsa(Cov_multi_aln, 1104, 1124, char_width = 0.5, seq_name = T) + geom_seqlogo() + geom_msaBar()
+```
+
+```{r}
+# Create a visualization of the multiple sequence alignment for SARS Spike protein.
+SARS_multi_aln <- multi_aln(file    = SARS_file,
+                            tool    = "clustalo",
+                            get_aln = TRUE)
+ggmsa(SARS_multi_aln, 1104, 1124, char_width = 0.5, seq_name = T) + geom_seqlogo() + geom_msaBar()
+```
+
+The corresponding residue in SARS is <b><u>Threonine (ACA)</b></u> on the ORF1a polyprotein / <b><u>Serine (TCG)</b></u> on the ORF9a protein.
